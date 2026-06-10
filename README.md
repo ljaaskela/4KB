@@ -1,14 +1,24 @@
 # 4KB
 
-A 4k intro for Windows, **2420 bytes** binary.
+A 4k intro for Windows, **3073 bytes** binary.
 
 ![screenshot](png/ss1.png)
 
 A Menger sponge tumbles in space with light leaking from its core; the camera
-dives into it on the bar-8 downbeat and the gyroid-carved tunnel inside turns
-out to be its innards. 140 BPM techno (four-on-the-floor kick, offbeat hats,
-acid bassline through a resonant filter), sine-wobbler rainbow greetings, and
-kick-synced screen flashes. Everything loops every 16 bars (~27 s). ESC quits.
+dives into it on the bar-6 downbeat, flies the gyroid-carved tunnel of its
+innards, and toward bar 12 the tunnel walls dissolve away, revealing an
+endless lattice of tumbling cubes — which itself dissolves during the
+kick-drop break until only the
+home cube is left, the camera settling back onto the opening orbit for a
+seamless loop. 140 BPM techno (four-on-the-floor kick, offbeat hats,
+acid bassline through a resonant filter, and a SID-style pulse lead with
+dotted-8th trance delay that enters on the dive), sine-wobbler rainbow
+greetings, and kick-synced screen flashes. Loops every 16 bars (~27 s).
+ESC quits.
+
+## Watch it
+
+https://www.youtube.com/watch?v=XKFyLgI__xg
 
 ## How it fits in 4k
 

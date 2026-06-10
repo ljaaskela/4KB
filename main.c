@@ -29,6 +29,25 @@ static const signed char basspat[16] = {
     0, -1, 0, 12, 0, -1, 10, -1, 0, 0, 12, -1, 3, -1, 15, 12
 };
 
+// lead melody, 4 bars of 16ths in A minor, semitones above A3; -1 = rest
+static const signed char melody[64] = {
+    12, -1, 12, -1, 15, 12, 10, 12,  7, -1,  7, -1, 10,  7,  3,  7,
+     5, -1,  5, -1,  8,  5,  3,  5,  0, -1,  3,  5,  7, 10, 12, 14,
+    15, -1, 12, -1, 15, 17, 15, 12, 19, -1, 15, -1, 12, -1, 10, -1,
+    12, 10,  7, 10, 12, -1, 14, -1, 15, 14, 12, 10,  7,  5,  3,  2,
+};
+
+// "vocal" anthem riff, semitones above A4; -1 = hold, -2 = release
+// syncopated stabs (a written-out trance gate), big held octave in bar 4
+static const signed char voxpat[64] = {
+     0, -1, -2,  0, -1, -2,  3, -1, -2,  0, -1, -2,  7, -1, -1, -2,
+     5, -1, -2,  5, -1, -2,  7, -1, -2,  3, -1, -2,  2, -1, -1, -2,
+     0, -1, -2,  0, -1, -2,  3, -1, -2,  7, -1, -2, 10, -1, -1, -2,
+    12, -1, -1, -1, -1, -1, -1, -1, 10, -1, -2,  7, -1, -2,  5, -1,
+};
+
+static float dbuf[STEP * 3];  // dotted-8th feedback delay line
+
 // one entry shown per 2 bars, then the list wraps
 static const char *greets[] = {
     "GREETINGS TO", "JARKKO", "JANI", "JUSSI", "JOHANNES",
@@ -53,7 +72,10 @@ static void synth(void)
     float kph = 0, kf = 0, kenv = 0;           // kick: phase, falling pitch, env
     float henv = 0, hdec = 0, cenv = 0;        // hats, clap
     float benv = 0, fenv = 0, lp = 0, bp = 0;  // bass env, filter sweep, SVF state
-    unsigned bph = 0, bst = 0, seed = 1;
+    float mfr = 0, menv = 0;                   // lead: note freq, env
+    float vfr = 440, vtf = 440, vgate = 0;     // vocal: pitch, glide target, gate
+    float venv = 0, vvib = 0, vpw = 0;         // vocal: env, vibrato swell, wah
+    unsigned bph = 0, bst = 0, mph = 0, mph2 = 0, vph = 0, seed = 1;
     for (int i = 0; i < SONGLEN; i++) {
         int step = i / STEP, bar = step >> 4;
         if (i % STEP == 0) {
@@ -72,6 +94,23 @@ static void synth(void)
                 bst = (unsigned)(fr * 97391.5f);
                 benv = .8f;
                 fenv = .1f + .15f * (bar & 7) / 7.f;  // sweep opens over 8 bars
+            }
+            n = melody[step & 63];
+            if (n >= 0) {
+                mfr = 220;
+                while (n--) mfr *= 1.0594631f;
+                menv = .5f;
+            }
+            // vocal solo enters with the claps (bar 4 of each 16)
+            n = voxpat[step & 63];
+            if ((bar & 15) < 4 || n == -2) {
+                vgate = 0;
+            } else if (n >= 0) {
+                vtf = 440;
+                while (n--) vtf *= 1.0594631f;
+                vgate = .38f;
+                vvib = 0;     // vibrato swells in fresh on each note
+                vpw = .1f;    // and the "mouth" reopens
             }
         }
         // kick: parabolic pseudo-sine with exponentially falling pitch
@@ -95,7 +134,28 @@ static void synth(void)
         float cut = .04f + fenv;
         lp += cut * bp;
         bp += cut * (saw - lp - .35f * bp);
-        float s = kick * .9f + hat + clap + (lp + bp * .5f) * .9f;
+        // lead: SID pulse with vibrato/PWM plays throughout; the detuned saw
+        // and dotted-8th echoes only join inside the cube (bars 8-15)
+        unsigned mst = (unsigned)(mfr * (1 + .006f * ssin(i * .000855f)) * 97391.5f);
+        mph += mst;
+        mph2 += mst + (mst >> 8);
+        float pw = .4f * ssin(i * .0001f);
+        float tr = (bar & 15) > 7 ? 1.f : 0;
+        float lead = ((int)mph * 4.66e-10f < pw ? .32f : -.32f) * menv
+                   + (int)mph2 * 7e-11f * menv * tr;
+        menv *= .9994f;
+        // vocal: quick scoop onto each note, light vibrato, pulse-width wah,
+        // ducked against the kick for the sidechain pump
+        vfr += (vtf - vfr) * .002f;
+        vvib += (1 - vvib) * .00012f;
+        venv += (vgate - venv) * .0008f;
+        vpw += (.45f - vpw) * .00015f;
+        vph += (unsigned)(vfr * (1 + .008f * vvib * ssin(i * .000784f)) * 97391.5f);
+        float voc = ((int)vph * 4.66e-10f < vpw ? .5f : -.5f) * venv * (1 - kenv * .7f);
+        int di = i % (STEP * 3);
+        float wet = lead + voc + dbuf[di] * .55f * tr;
+        dbuf[di] = wet;
+        float s = kick * .9f + hat + clap + (lp + bp * .5f) * .9f + wet * .9f;
         s = s / (1 + (float)fabs(s));  // soft clip
         sbuf[i] = (short)(s * 32000.f);
     }
